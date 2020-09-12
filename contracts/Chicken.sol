@@ -42,12 +42,14 @@ contract Chicken {
         uint pStartDate,
         uint pEndDate
     ) external onlyOwner {
-        Game storage game = _getLatestGame();
-        require(game.finished, "Last game is still running");
-
         require(pStagingDate > now, "Invalid staging date");
         require(pStartDate > pStagingDate, "Invalid start date");
         require(pEndDate > pStartDate, "Invalid end date");
+
+        if (gameIdx > 0) {
+            Game storage game = _getLatestGame();
+            require(game.finished, "Last game is still running");
+        }
 
         gameIdx += 1;
         Game storage newGame = _games[gameIdx];
@@ -85,11 +87,11 @@ contract Chicken {
         (uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal();
         require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
 
-        msg.sender.transfer(effectiveAmount);
-
         poolBalance = poolBalance.add(nonWithdrawable).sub(poolReward);
 
         _burn(msg.sender, userBalance);
+
+        msg.sender.transfer(effectiveAmount);
 
         emit Withdrawal(msg.sender, withdrawable);
     }

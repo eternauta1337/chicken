@@ -5,14 +5,14 @@ const { now, fastForward, fastForwardTo } = require('../src/utils/timeUtil');
 let chicken;
 let accounts;
 
-let STAGING_START_DATE;
-let GAME_START_DATE;
-let GAME_END_DATE;
+let STAGING_DATE;
+let START_DATE;
+let END_DATE;
 
 async function startStaging() {
   console.log('  Skipping to staging start date...');
 
-  await fastForwardTo(STAGING_START_DATE + 1);
+  await fastForwardTo(STAGING_DATE + 1);
 }
 
 async function simulateDeposits() {
@@ -27,21 +27,28 @@ async function simulateDeposits() {
     });
 
     const bal = await chicken.balanceOf(account);
-    console.log(`    Account[${i}] ${account} deposit:`, bal.toString());
+    console.log(`    Account[${i}] ${account} deposits ${bre.ethers.utils.formatEther(bal)} ETH`);
   };
 }
 
 async function startGame() {
   console.log('  Skipping to game start date...');
 
-  await fastForwardTo(GAME_START_DATE + 1);
+  await fastForwardTo(START_DATE + 1);
 }
 
 async function simulateWithdrawals() {
   console.log('  Simulating withdrawals...');
 
   for (let i = 0; i < accounts.length; i++) {
-    await fastForward(Math.floor(Math.random(59) + 60 * ));
+    const skip = 30 * 60 * Math.random();
+    await fastForward(skip);
+
+    const timeElapsedPercent = bre.ethers.utils.formatEther(await chicken.getTimeElapsedPercent());
+    if (timeElapsedPercent > 1) {
+      console.log('    <<< TIME IS UP!!! >>>');
+      break;
+    }
 
     const account = accounts[i];
     const signer = bre.ethers.provider.getSigner(account);
@@ -52,7 +59,8 @@ async function simulateWithdrawals() {
 
     const balanceAfter = await bre.ethers.provider.getBalance(account);
     const delta = balanceAfter.sub(balanceBefore);
-    console.log(`    Account[${i}] ${account} withdraw:`, bre.ethers.utils.formatEther(delta));
+
+    console.log(`    Account[${i}] ${account} withdraws ${bre.ethers.utils.formatEther(delta)} ETH at game time: ${timeElapsedPercent}`);
   };
 
   const contractBalance = await bre.ethers.provider.getBalance(chicken.address);
@@ -62,22 +70,23 @@ async function simulateWithdrawals() {
 async function endGame() {
   console.log('  Skipping to game end date...');
 
-  await fastForwardTo(GAME_END_DATE + 1);
+  await fastForwardTo(END_DATE + 1);
 }
 
 async function main() {
   console.log('Simulating...');
 
-  STAGING_START_DATE = now() + 10;
-  GAME_START_DATE = STAGING_START_DATE + 60 * 60;
-  GAME_END_DATE = GAME_START_DATE + 24 * 60 * 60;
+  STAGING_DATE = now() + 10;
+  START_DATE = STAGING_DATE + 60 * 60;
+  END_DATE = START_DATE + 24 * 60 * 60;
 
   const Chicken = await ethers.getContractFactory("Chicken");
 
-  chicken = await Chicken.deploy(
-    STAGING_START_DATE,
-    GAME_START_DATE,
-    GAME_END_DATE,
+  chicken = await Chicken.deploy('0x0000000000000000000000000000000000000001');
+  await chicken.createGame(
+    STAGING_DATE,
+    START_DATE,
+    END_DATE
   );
 
   accounts = await bre.ethers.provider.listAccounts();
