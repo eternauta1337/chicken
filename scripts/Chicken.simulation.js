@@ -1,6 +1,6 @@
 const bre = require("@nomiclabs/buidler");
 
-const { now, fastForwardTo } = require('../src/utils/timeUtil');
+const { now, fastForward, fastForwardTo } = require('../src/utils/timeUtil');
 
 let chicken;
 let accounts;
@@ -27,7 +27,7 @@ async function simulateDeposits() {
     });
 
     const bal = await chicken.balanceOf(account);
-    console.log(`    Account[${i}] ${account} deposit:`, bal.toString());
+    console.log(`    Account[${i}] ${account} deposits ${bre.ethers.utils.formatEther(bal)} ETH`);
   };
 }
 
@@ -39,7 +39,31 @@ async function startGame() {
 
 async function simulateWithdrawals() {
   console.log('  Simulating withdrawals...');
-  // TODO
+
+  for (let i = 0; i < accounts.length; i++) {
+    const skip = 30 * 60 * Math.random();
+    await fastForward(skip);
+
+    const timeElapsedPercent = bre.ethers.utils.formatEther(await chicken.getTimeElapsedPercent());
+    if (timeElapsedPercent > 1) {
+      break;
+    }
+
+    const account = accounts[i];
+    const signer = bre.ethers.provider.getSigner(account);
+
+    const balanceBefore = await bre.ethers.provider.getBalance(account);
+
+    await chicken.connect(signer).withdraw();
+
+    const balanceAfter = await bre.ethers.provider.getBalance(account);
+    const delta = balanceAfter.sub(balanceBefore);
+
+    console.log(`    Account[${i}] ${account} withdraws ${bre.ethers.utils.formatEther(delta)} ETH at game time: ${timeElapsedPercent}`);
+  };
+
+  const contractBalance = await bre.ethers.provider.getBalance(chicken.address);
+  console.log('    Contract balance:', bre.ethers.utils.formatEther(contractBalance));
 }
 
 async function endGame() {

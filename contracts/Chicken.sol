@@ -51,12 +51,13 @@ contract Chicken is ERC20, ERC20Detailed {
 
     function withdraw() public {
         require(now > gameStartDate, "Cannot withdraw until game starts");
+        require(now < gameEndDate, "Cannot withdraw when game is over");
 
         uint userBalance = balanceOf(msg.sender);
 
         uint withdrawableBalance = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
 
-        uint userRatio = userBalance.mul(UNIT).mul(totalSupply());
+        uint userRatio = userBalance.mul(UNIT).div(totalSupply());
         uint poolReward = forfeitPoolBalance.mul(userRatio).div(UNIT);
         forfeitPoolBalance = forfeitPoolBalance.sub(poolReward);
 
