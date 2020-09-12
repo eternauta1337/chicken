@@ -8,7 +8,7 @@ function generateDummyAccounts(numAccounts) {
   for (let i = 0; i < numAccounts; i++) {
     accounts.push({
       privateKey: ethers.Wallet.createRandom().privateKey,
-      balance: '1000000000000000000'
+      balance: ethers.utils.parseEther('100').toString(),
     });
   }
 
