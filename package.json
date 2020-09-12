@@ -19,6 +19,7 @@
   "homepage": "https://github.com/ajsantander/chicken#readme",
   "dependencies": {
     "@nomiclabs/buidler": "^1.4.5",
+    "@openzeppelin/contracts": "^2.5.1",
     "solc": "^0.5.17"
   },
   "devDependencies": {
