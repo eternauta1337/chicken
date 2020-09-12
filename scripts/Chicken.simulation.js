@@ -1,19 +1,18 @@
 const bre = require("@nomiclabs/buidler");
 
-const { fastForward } = require('../src/utils/skipTime');
+const { now, fastForwardTo } = require('../src/utils/timeUtil');
 
 let chicken;
 let accounts;
 
-const NOW = Math.floor(new Date().getTime() / 1000);
-const STAGING_START_DATE = NOW + 10;
-const GAME_START_DATE = STAGING_START_DATE + 60 * 60;
-const GAME_END_DATE = GAME_START_DATE + 24 * 60 * 60;
+let STAGING_START_DATE;
+let GAME_START_DATE;
+let GAME_END_DATE;
 
 async function startStaging() {
   console.log('  Skipping to staging start date...');
 
-  await fastForward(STAGING_START_DATE - NOW + 1);
+  await fastForwardTo(STAGING_START_DATE + 1);
 }
 
 async function simulateDeposits() {
@@ -34,7 +33,8 @@ async function simulateDeposits() {
 
 async function startGame() {
   console.log('  Skipping to game start date...');
-  // TODO
+
+  await fastForwardTo(GAME_START_DATE + 1);
 }
 
 async function simulateWithdrawals() {
@@ -44,11 +44,16 @@ async function simulateWithdrawals() {
 
 async function endGame() {
   console.log('  Skipping to game end date...');
-  // TODO
+
+  await fastForwardTo(GAME_END_DATE + 1);
 }
 
 async function main() {
   console.log('Simulating...');
+
+  STAGING_START_DATE = now() + 10;
+  GAME_START_DATE = STAGING_START_DATE + 60 * 60;
+  GAME_END_DATE = GAME_START_DATE + 24 * 60 * 60;
 
   const Chicken = await ethers.getContractFactory("Chicken");
 
