@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 contract Chicken {
     using SafeMath for uint256;
 
-    uint public poolBalance;
-
     address public owner;
     address payable public donationAddress;
 
@@ -24,7 +22,8 @@ contract Chicken {
         uint stagingDate; // TODO: Use uint64 to save storage space?
         uint startDate;
         uint endDate;
-        uint totalDeposited; // TODO: Rename these? Might be confusing to have such ERC-20-y names
+        uint totalDeposited;
+        uint poolBalance;
         mapping(address => uint) deposits;
     }
 
@@ -70,7 +69,8 @@ contract Chicken {
         require(now > game.stagingDate, "Too early to deposit");
         require(now < game.startDate, "Game already started");
 
-        _mint(msg.sender, msg.value);
+        game.deposits[msg.sender] = game.deposits[msg.sender].add(msg.value);
+        game.totalDeposited = game.totalDeposited.add(msg.value);
 
         emit Deposit(msg.sender, msg.value);
     }
@@ -82,14 +82,13 @@ contract Chicken {
         require(now > game.startDate, "Cannot withdraw until game starts");
         require(now < game.endDate, "Cannot withdraw when game is over");
 
-        uint userBalance = balanceOf(msg.sender);
-
-        (uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal();
+        (uint userBalance, uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal(msg.sender);
         require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
 
-        poolBalance = poolBalance.add(nonWithdrawable).sub(poolReward);
+        game.poolBalance = game.poolBalance.add(nonWithdrawable).sub(poolReward);
 
-        _burn(msg.sender, userBalance);
+        game.deposits[msg.sender] = game.deposits[msg.sender].sub(userBalance);
+        game.totalDeposited = game.totalDeposited.sub(userBalance);
 
         msg.sender.transfer(effectiveAmount);
 
@@ -102,47 +101,32 @@ contract Chicken {
         Game storage game = _getLatestGame();
         game.finished = true;
 
-        poolBalance = 0;
-
         donationAddress.transfer(address(this).balance);
-    }
-
-    function _mint(address player, uint amount) private {
-        Game storage game = _getLatestGame();
-
-        game.deposits[player] = game.deposits[player].add(amount);
-        game.totalDeposited = game.totalDeposited.add(amount);
-    }
-
-    function _burn(address player, uint amount) private {
-        Game storage game = _getLatestGame();
-
-        game.deposits[player] = game.deposits[player].sub(amount);
-        game.totalDeposited = game.totalDeposited.sub(amount);
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ VIEW FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
-    function balanceOf(address player) public view returns (uint) {
+    function getPlayerDeposit(address player) public view returns (uint) {
         Game storage game = _getLatestGame();
 
         return game.deposits[player];
     }
 
-    function getExpectedWithdrawal() public view returns (uint, uint, uint, uint) {
+    function getExpectedWithdrawal(address player) public view returns (uint, uint, uint, uint, uint) {
         Game storage game = _getLatestGame();
 
-        uint userBalance = balanceOf(msg.sender);
+        uint userBalance = game.deposits[player];
 
         uint withdrawable = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
         uint nonWithdrawable = userBalance.sub(withdrawable);
 
         uint userRatio = userBalance.mul(UNIT).div(game.totalDeposited);
-        uint poolReward = poolBalance.mul(userRatio).div(UNIT);
+        uint poolReward = game.poolBalance.mul(userRatio).div(UNIT);
 
         uint effectiveAmount = withdrawable.add(poolReward);
 
         return (
+            userBalance,
             withdrawable,
             nonWithdrawable,
             poolReward,

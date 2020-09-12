@@ -26,7 +26,7 @@ async function simulateDeposits() {
       value: bre.ethers.utils.parseEther('1'),
     });
 
-    const bal = await chicken.balanceOf(account);
+    const bal = await chicken.getPlayerDeposit(account);
     console.log(`    Account[${i}] ${account} deposits ${bre.ethers.utils.formatEther(bal)} ETH`);
   };
 }
