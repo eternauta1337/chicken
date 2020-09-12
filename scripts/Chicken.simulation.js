@@ -27,7 +27,7 @@ async function simulateDeposits() {
     });
 
     const bal = await chicken.balanceOf(account);
-    console.log(`    Account[${i}] ${account} deposits ${bre.ethers.utils.formatEther(bal)} ETH`);
+    console.log(`    Account[${i}] ${account} deposit:`, bal.toString());
   };
 }
 
@@ -41,14 +41,7 @@ async function simulateWithdrawals() {
   console.log('  Simulating withdrawals...');
 
   for (let i = 0; i < accounts.length; i++) {
-    const skip = 30 * 60 * Math.random();
-    await fastForward(skip);
-
-    const timeElapsedPercent = bre.ethers.utils.formatEther(await chicken.getTimeElapsedPercent());
-    if (timeElapsedPercent > 1) {
-      console.log('    <<< TIME IS UP!!! >>>');
-      break;
-    }
+    await fastForward(Math.floor(Math.random(59) + 60 * ));
 
     const account = accounts[i];
     const signer = bre.ethers.provider.getSigner(account);
@@ -59,8 +52,7 @@ async function simulateWithdrawals() {
 
     const balanceAfter = await bre.ethers.provider.getBalance(account);
     const delta = balanceAfter.sub(balanceBefore);
-
-    console.log(`    Account[${i}] ${account} withdraws ${bre.ethers.utils.formatEther(delta)} ETH at game time: ${timeElapsedPercent}`);
+    console.log(`    Account[${i}] ${account} withdraw:`, bre.ethers.utils.formatEther(delta));
   };
 
   const contractBalance = await bre.ethers.provider.getBalance(chicken.address);
