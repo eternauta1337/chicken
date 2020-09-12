@@ -14,8 +14,10 @@ contract Chicken is ERC20, ERC20Detailed {
     uint public gameStartDate;
     uint public gameEndDate;
 
+    uint public forfeitPoolBalance;
+
     event Deposit(address indexed user, uint value);
-    event Withdraw(address indexed user, uint value);
+    event Withdrawal(address indexed user, uint value);
 
     uint public constant UNIT = 1e18;
 
@@ -42,36 +44,56 @@ contract Chicken is ERC20, ERC20Detailed {
         require(now > stagingStartDate, "Too early to deposit");
         require(now < gameStartDate, "Game already started");
 
-        balances[msg.sender] = balances[msg.sender].add(msg.value);
+        _mint(msg.sender, msg.value);
 
         emit Deposit(msg.sender, msg.value);
     }
 
-    function withdraw(uint pAmount) public {
-        // TODO
+    function withdraw() public {
+        require(now > gameStartDate, "Cannot withdraw until game starts");
+
+        uint userBalance = balanceOf(msg.sender);
+
+        uint withdrawableBalance = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
+
+        uint userRatio = userBalance.mul(UNIT).mul(totalSupply);
+        uint poolReward = forfeitPoolBalance.mul(userRatio).div(UNIT);
+        forfeitPoolBalance = forfeitPoolBalance.sub(poolReward);
+
+        uint effectiveAmount = withdrawableBalance.add(poolReward);
+        require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
+
+        msg.sender.transfer(effectiveAmount);
+
+        uint nonWithdrawableAmount = userBalance.sub(withdrawableBalance);
+        forfeitPoolBalance = forfeitPoolBalance.add(nonWithdrawableAmount);
+
+        _burn(msg.sender, userBalance);
+
+        emit Withdrawal(msg.sender, withdrawableBalance);
     }
 
     function endGame() public {
-        require(timeElapsedPercent() > UNIT, "Too early to end game");
+        require(getTimeElapsedPercent() > UNIT, "Too early to end game");
 
         // TODO
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ VIEW FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
-    function timeElapsedPercent() public view returns (uint) {
+    function getTimeElapsedPercent() public view returns (uint) {
         uint timeElapsed = now.sub(gameStartDate);
 
-        return timeElapsed.mul(UNIT).div(gameDuration());
+        return timeElapsed.mul(UNIT).div(getGameDuration());
     }
 
-    function timeRemainingPercent() public view returns (uint) {
+    function getTimeRemainingPercent() public view returns (uint) {
         uint timeRemaining = gameEndDate.sub(now);
 
-        return timeRemaining.mul(UNIT).div(gameDuration());
+        return timeRemaining.mul(UNIT).div(getGameDuration());
     }
 
-    function gameDuration() public view returns (uint) {
+    function getGameDuration() public view returns (uint) {
         return gameEndDate.sub(gameStartDate);
     }
 }
