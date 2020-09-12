@@ -14,7 +14,7 @@ contract Chicken is ERC20, ERC20Detailed {
     uint public gameStartDate;
     uint public gameEndDate;
 
-    uint public forfeitPoolBalance;
+    uint public poolBalance;
 
     event Deposit(address indexed user, uint value);
     event Withdrawal(address indexed user, uint value);
@@ -55,23 +55,16 @@ contract Chicken is ERC20, ERC20Detailed {
 
         uint userBalance = balanceOf(msg.sender);
 
-        uint withdrawableBalance = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
-
-        uint userRatio = userBalance.mul(UNIT).div(totalSupply());
-        uint poolReward = forfeitPoolBalance.mul(userRatio).div(UNIT);
-        forfeitPoolBalance = forfeitPoolBalance.sub(poolReward);
-
-        uint effectiveAmount = withdrawableBalance.add(poolReward);
-        require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
-
+        (uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal();
         msg.sender.transfer(effectiveAmount);
 
-        uint nonWithdrawableAmount = userBalance.sub(withdrawableBalance);
-        forfeitPoolBalance = forfeitPoolBalance.add(nonWithdrawableAmount);
+        require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
+
+        poolBalance = poolBalance.add(nonWithdrawable).sub(poolReward);
 
         _burn(msg.sender, userBalance);
 
-        emit Withdrawal(msg.sender, withdrawableBalance);
+        emit Withdrawal(msg.sender, withdrawable);
     }
 
     function endGame() public {
@@ -81,6 +74,25 @@ contract Chicken is ERC20, ERC20Detailed {
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ VIEW FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
+
+    function getExpectedWithdrawal() public view returns (uint, uint, uint, uint) {
+        uint userBalance = balanceOf(msg.sender);
+
+        uint withdrawable = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
+        uint nonWithdrawable = userBalance.sub(withdrawable);
+
+        uint userRatio = userBalance.mul(UNIT).div(totalSupply());
+        uint poolReward = poolBalance.mul(userRatio).div(UNIT);
+
+        uint effectiveAmount = withdrawable.add(poolReward);
+
+        return (
+            withdrawable,
+            nonWithdrawable,
+            poolReward,
+            effectiveAmount
+        );
+    }
 
     function getTimeElapsedPercent() public view returns (uint) {
         uint timeElapsed = now.sub(gameStartDate);

@@ -46,6 +46,7 @@ async function simulateWithdrawals() {
 
     const timeElapsedPercent = bre.ethers.utils.formatEther(await chicken.getTimeElapsedPercent());
     if (timeElapsedPercent > 1) {
+      console.log('    <<< TIME IS UP!!! >>>');
       break;
     }
 
