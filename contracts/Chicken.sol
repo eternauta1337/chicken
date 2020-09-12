@@ -31,9 +31,9 @@ contract Chicken is ERC20, ERC20Detailed {
         public
         ERC20Detailed("CHICK Token", "CHK", 18)
     {
-        require(pStagingStartDate < pGameStartDate, "Invalid staging start date");
-        require(pGameStartDate < pGameEndDate, "Invalid game start date");
-        require(pGameEndDate < now, "Invalid game end date");
+        require(pStagingStartDate > now, "Invalid staging start date");
+        require(pGameStartDate > pStagingStartDate, "Invalid game start date");
+        require(pGameEndDate > pStagingStartDate, "Invalid game end date");
 
         stagingStartDate = pStagingStartDate;
         gameStartDate = pGameStartDate;
@@ -56,7 +56,7 @@ contract Chicken is ERC20, ERC20Detailed {
 
         uint withdrawableBalance = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
 
-        uint userRatio = userBalance.mul(UNIT).mul(totalSupply);
+        uint userRatio = userBalance.mul(UNIT).mul(totalSupply());
         uint poolReward = forfeitPoolBalance.mul(userRatio).div(UNIT);
         forfeitPoolBalance = forfeitPoolBalance.sub(poolReward);
 

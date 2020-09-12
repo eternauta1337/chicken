@@ -1,23 +1,28 @@
+const ethers = require('ethers');
+
 usePlugin("@nomiclabs/buidler-waffle");
 
-// This is a sample Buidler task. To learn how to create your own go to
-// https://buidler.dev/guides/create-task.html
-task("accounts", "Prints the list of accounts", async () => {
-  const accounts = await ethers.getSigners();
+function generateDummyAccounts(numAccounts) {
+  const accounts = [];
 
-  for (const account of accounts) {
-    console.log(await account.getAddress());
+  for (let i = 0; i < numAccounts; i++) {
+    accounts.push({
+      privateKey: ethers.Wallet.createRandom().privateKey,
+      balance: '1000000000000000000'
+    });
   }
-});
 
-// You have to export an object to set up your config
-// This object can have the following optional entries:
-// defaultNetwork, networks, solc, and paths.
-// Go to https://buidler.dev/config/ to learn more
+  return accounts;
+}
+
 module.exports = {
-  // This is a sample solc configuration that specifies which version of solc to use
   solc: {
     version: "0.5.16",
+  },
+  networks: {
+    buidlerevm: {
+      accounts: generateDummyAccounts(100)
+    },
   },
 };
 
