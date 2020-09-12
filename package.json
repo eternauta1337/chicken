@@ -1,0 +1,31 @@
+{
+  "name": "chicken",
+  "version": "1.0.0",
+  "description": "An Ethereum economic game designed to harvest greed and coerce it into a common good.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajsantander/chicken.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ajsantander/chicken/issues"
+  },
+  "homepage": "https://github.com/ajsantander/chicken#readme",
+  "dependencies": {
+    "@nomiclabs/buidler": "^1.4.5",
+    "solc": "^0.5.17"
+  },
+  "devDependencies": {
+    "@nomiclabs/buidler-ethers": "^2.0.0",
+    "@nomiclabs/buidler-waffle": "^2.1.0",
+    "chai": "^4.2.0",
+    "ethereum-waffle": "^3.1.0",
+    "ethers": "^5.0.13"
+  }
+}
