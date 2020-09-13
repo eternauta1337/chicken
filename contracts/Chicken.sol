@@ -1,9 +1,10 @@
 pragma solidity ^0.5.16;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 
-contract Chicken {
+contract Chicken is ReentrancyGuard {
     using SafeMath for uint256;
 
     address public owner;
@@ -71,7 +72,7 @@ contract Chicken {
         emit Deposit(msg.sender, msg.value);
     }
 
-    function withdraw() public {
+    function withdraw() public nonReentrant {
         require(gameIdx > 0, "No active game");
 
         require(now > startDate, "Cannot withdraw until game starts");
