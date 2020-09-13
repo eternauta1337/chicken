@@ -105,12 +105,11 @@ contract Chicken is ReentrancyGuard {
 
         uint balance = address(this).balance;
         if (balance > 0) {
-            // Donate 99.9% of the balance.
-            uint donated = balance.mul(999).div(10000);
-            donationAddress.transfer(donated);
-
             // 0.1% as owner fees.
-            owner.transfer(address(this).balance);
+            owner.transfer(balance.mul(999).div(10000));
+
+            // Donate the remaining balance.
+            donationAddress.transfer(address(this).balance);
         }
     }
 

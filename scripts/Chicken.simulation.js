@@ -9,7 +9,7 @@ let STAGING_DATE;
 let START_DATE;
 let END_DATE;
 
-const DONATE_ADDRESS = '0x0000000000000000000000000000000000000001';
+const DONATE_ADDRESS = '0xdEADBeAFdeAdbEafdeadbeafDeAdbEAFdeadbeaf';
 
 async function startStaging() {
   console.log('  Skipping to staging start date...');
@@ -77,7 +77,7 @@ async function endGame() {
   await chicken.endGame();
 
   const donateBalance = await bre.ethers.provider.getBalance(DONATE_ADDRESS);
-  console.log(`donate address balance ${bre.ethers.utils.parseEther(donateBalance)}`);
+  console.log(`    Donate address balance ${bre.ethers.utils.formatEther(donateBalance)}`);
 }
 
 async function main() {
