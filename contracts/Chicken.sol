@@ -36,7 +36,7 @@ contract Chicken is ReentrancyGuard {
         uint pStagingDate,
         uint pStartDate,
         uint pEndDate
-    ) external onlyOwner {
+    ) external {
         require(pStagingDate > now, "Invalid staging date");
         require(pStartDate > pStagingDate, "Invalid start date");
         require(pEndDate > pStartDate, "Invalid end date");
@@ -100,6 +100,9 @@ contract Chicken is ReentrancyGuard {
         require(getTimeElapsedPercent() > UNIT, "Too early to end game");
 
         _resetGame();
+
+        // TODO: Add incentive for anyone to call this
+        // TODO: Owner fees?
 
         donationAddress.transfer(address(this).balance);
     }
