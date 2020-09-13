@@ -1,7 +1,7 @@
 # :chicken: chicken.finance :chicken:
-An Ethereum economic game designed to harvest greed, and coerce it into a common good.
+An Ethereum economic game of chicken, designed to harvest greed, and coerce it into good.
 
-### design
+### Design
 Anyone can create a new game, which consists of a "staging" and a "gameplay" period.
 
 During the staging period, players can deposit ETH for the upcoming game.
@@ -14,13 +14,13 @@ At 100% of the game, withdrawals are locked and all remaining funds are donated 
 
 This mechanism encourages people withdraw as late as possible. Participants will have to make a decision on when to withdraw, which is not trivial. Concerns about gas prices and race conditions might encourage participants to withdraw earlier.
 
-### install
+### Install
 ```
 npm install
 ```
 
-### simulation
-Run this command to run a local gameplay simulation.
+### Simulation
+Use this command to run a local gameplay simulation.
 
 ```
 npm run simulate
