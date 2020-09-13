@@ -37,10 +37,11 @@ contract Chicken is ReentrancyGuard {
         uint pStartDate,
         uint pEndDate
     ) external {
+        require(endDate == 0, "Game is running");
+
         require(pStagingDate > now, "Invalid staging date");
         require(pStartDate > pStagingDate, "Invalid start date");
         require(pEndDate > pStartDate, "Invalid end date");
-        require(endDate == 0, "Game is running");
 
         gameIdx += 1;
 
@@ -60,7 +61,7 @@ contract Chicken is ReentrancyGuard {
     }
 
     function deposit() public payable {
-        require(gameIdx > 0, "No active game");
+        require(endDate > 0, "No active game");
 
         require(now > stagingDate, "Too early to deposit");
         require(now < startDate, "Game already started");
@@ -73,7 +74,7 @@ contract Chicken is ReentrancyGuard {
     }
 
     function withdraw() public nonReentrant {
-        require(gameIdx > 0, "No active game");
+        require(endDate > 0, "No active game");
 
         require(now > startDate, "Cannot withdraw until game starts");
         require(now < endDate, "Cannot withdraw when game is over");
@@ -97,7 +98,8 @@ contract Chicken is ReentrancyGuard {
     }
 
     function endGame() public nonReentrant {
-        require(getTimeElapsedPercent() > UNIT, "Too early to end game");
+        require(endDate > 0, "No active game");
+        require(now > endDate, "Too early to end game");
 
         _resetGame();
 
