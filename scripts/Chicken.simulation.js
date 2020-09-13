@@ -9,6 +9,8 @@ let STAGING_DATE;
 let START_DATE;
 let END_DATE;
 
+const DONATE_ADDRESS = '0x0000000000000000000000000000000000000001';
+
 async function startStaging() {
   console.log('  Skipping to staging start date...');
 
@@ -60,7 +62,7 @@ async function simulateWithdrawals() {
     const balanceAfter = await bre.ethers.provider.getBalance(account);
     const delta = balanceAfter.sub(balanceBefore);
 
-    console.log(`    Account[${i}] ${account} withdraws ${bre.ethers.utils.formatEther(delta)} ETH at game time: ${timeElapsedPercent}`);
+    console.log(`    Account[${i}] ${account} withdraws ${bre.ethers.utils.formatEther(delta)} ETH at game time ${timeElapsedPercent}`);
   };
 
   const contractBalance = await bre.ethers.provider.getBalance(chicken.address);
@@ -71,6 +73,11 @@ async function endGame() {
   console.log('  Skipping to game end date...');
 
   await fastForwardTo(END_DATE + 1);
+
+  await chicken.endGame();
+
+  const donateBalance = await bre.ethers.provider.getBalance(DONATE_ADDRESS);
+  console.log(`donate address balance ${bre.ethers.utils.parseEther(donateBalance)}`);
 }
 
 async function main() {
@@ -82,7 +89,7 @@ async function main() {
 
   const Chicken = await ethers.getContractFactory("Chicken");
 
-  chicken = await Chicken.deploy('0x0000000000000000000000000000000000000001');
+  chicken = await Chicken.deploy(DONATE_ADDRESS);
   await chicken.createGame(
     STAGING_DATE,
     START_DATE,

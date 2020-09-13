@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract Chicken is ReentrancyGuard {
     using SafeMath for uint256;
 
-    address public owner;
+    address payable public owner;
     address payable public donationAddress;
 
     event Deposit(address indexed player, uint value);
@@ -101,10 +101,15 @@ contract Chicken is ReentrancyGuard {
 
         _resetGame();
 
-        // TODO: Add incentive for anyone to call this
-        // TODO: Owner fees?
+        uint balance = address(this).balance;
+        if (balance > 0) {
+            // Donate 99.9% of the balance.
+            uint donated = balance.mul(999).div(10000);
+            donationAddress.transfer(donated);
 
-        donationAddress.transfer(address(this).balance);
+            // 0.1% as owner fees.
+            owner.transfer(address(this).balance);
+        }
     }
 
     function _resetGame() private {
