@@ -14,18 +14,14 @@ contract Chicken {
 
     uint public constant UNIT = 1e18;
 
-    mapping(uint => Game) _games;
+    mapping(uint => mapping(address => uint)) _deposits;
     uint public gameIdx;
 
-    struct Game {
-        bool finished;
-        uint stagingDate; // TODO: Use uint64 to save storage space?
-        uint startDate;
-        uint endDate;
-        uint totalDeposited;
-        uint poolBalance;
-        mapping(address => uint) deposits;
-    }
+    uint public stagingDate; // TODO: Use uint64 to save storage space?
+    uint public startDate;
+    uint public endDate;
+    uint public totalDeposited;
+    uint public poolBalance; // TODO: This might not be needed
 
     /* ~~~~~~~~~~~~~~~~~~~~~ MUTATIVE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -43,18 +39,13 @@ contract Chicken {
         require(pStagingDate > now, "Invalid staging date");
         require(pStartDate > pStagingDate, "Invalid start date");
         require(pEndDate > pStartDate, "Invalid end date");
-
-        if (gameIdx > 0) {
-            Game storage game = _getLatestGame();
-            require(game.finished, "Last game is still running");
-        }
+        require(endDate == 0, "Game is running");
 
         gameIdx += 1;
-        Game storage newGame = _games[gameIdx];
 
-        newGame.stagingDate = pStagingDate;
-        newGame.startDate = pStartDate;
-        newGame.endDate = pEndDate;
+        stagingDate = pStagingDate;
+        startDate = pStartDate;
+        endDate = pEndDate;
     }
 
     function setDonationAddress(address payable pDonationAddress) external onlyOwner {
@@ -70,12 +61,12 @@ contract Chicken {
     function deposit() public payable {
         require(gameIdx > 0, "No active game");
 
-        Game storage game = _getLatestGame();
-        require(now > game.stagingDate, "Too early to deposit");
-        require(now < game.startDate, "Game already started");
+        require(now > stagingDate, "Too early to deposit");
+        require(now < startDate, "Game already started");
 
-        game.deposits[msg.sender] = game.deposits[msg.sender].add(msg.value);
-        game.totalDeposited = game.totalDeposited.add(msg.value);
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
+        deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+        totalDeposited = totalDeposited.add(msg.value);
 
         emit Deposit(msg.sender, msg.value);
     }
@@ -83,9 +74,8 @@ contract Chicken {
     function withdraw() public {
         require(gameIdx > 0, "No active game");
 
-        Game storage game = _getLatestGame();
-        require(now > game.startDate, "Cannot withdraw until game starts");
-        require(now < game.endDate, "Cannot withdraw when game is over");
+        require(now > startDate, "Cannot withdraw until game starts");
+        require(now < endDate, "Cannot withdraw when game is over");
 
         uint playerDeposit = getPlayerDeposit(msg.sender);
 
@@ -93,10 +83,11 @@ contract Chicken {
 
         uint poolShare = getPlayerPoolShare(msg.sender);
 
-        game.poolBalance = game.poolBalance.add(nonWithdrawable).sub(poolShare);
+        poolBalance = poolBalance.add(nonWithdrawable).sub(poolShare);
 
-        game.deposits[msg.sender] = game.deposits[msg.sender].sub(playerDeposit);
-        game.totalDeposited = game.totalDeposited.sub(playerDeposit);
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
+        deposits[msg.sender] = deposits[msg.sender].sub(playerDeposit);
+        totalDeposited = totalDeposited.sub(playerDeposit);
 
         uint effectiveWithdrawal = withdrawable.add(poolShare);
         msg.sender.transfer(effectiveWithdrawal);
@@ -107,24 +98,27 @@ contract Chicken {
     function endGame() public {
         require(getTimeElapsedPercent() > UNIT, "Too early to end game");
 
-        Game storage game = _getLatestGame();
-        game.finished = true;
+        _resetGame();
 
         donationAddress.transfer(address(this).balance);
+    }
+
+    function _resetGame() private {
+        stagingDate = startDate = endDate = 0;
+        poolBalance = 0;
+        totalDeposited = 0;
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ VIEW FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
     function getPlayerDeposit(address player) public view returns (uint) {
-        Game storage game = _getLatestGame();
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
 
-        return game.deposits[player];
+        return deposits[player];
     }
 
     function getPlayerWithdrawable(address player) public view returns (uint, uint) {
-        Game storage game = _getLatestGame();
-
-        uint playerDeposit = game.deposits[player];
+        uint playerDeposit = getPlayerDeposit(player);
 
         uint withdrawable = playerDeposit.mul(getTimeElapsedPercent()).div(UNIT);
         uint nonWithdrawable = playerDeposit.sub(withdrawable);
@@ -133,13 +127,11 @@ contract Chicken {
     }
 
     function getPlayerPoolShare(address player) public view returns (uint) {
-        Game storage game = _getLatestGame();
+        uint playerDeposit = getPlayerDeposit(player);
 
-        uint playerDeposit = game.deposits[player];
+        uint playerDepositRatio = playerDeposit.mul(UNIT).div(totalDeposited);
 
-        uint playerDepositRatio = playerDeposit.mul(UNIT).div(game.totalDeposited);
-
-        return game.poolBalance.mul(playerDepositRatio).div(UNIT);
+        return poolBalance.mul(playerDepositRatio).div(UNIT);
     }
 
     function getExpectedWithdrawal(address player) public view returns (uint) {
@@ -151,29 +143,19 @@ contract Chicken {
     }
 
     function getTimeElapsedPercent() public view returns (uint) {
-        Game storage game = _getLatestGame();
-
-        uint timeElapsed = now.sub(game.startDate);
+        uint timeElapsed = now.sub(startDate);
 
         return timeElapsed.mul(UNIT).div(getGameDuration());
     }
 
     function getTimeRemainingPercent() public view returns (uint) {
-        Game storage game = _getLatestGame();
-
-        uint timeRemaining = game.endDate.sub(now);
+        uint timeRemaining = endDate.sub(now);
 
         return timeRemaining.mul(UNIT).div(getGameDuration());
     }
 
     function getGameDuration() public view returns (uint) {
-        Game storage game = _getLatestGame();
-
-        return game.endDate.sub(game.startDate);
-    }
-
-    function _getLatestGame() private view returns (Game storage) {
-        return _games[gameIdx];
+        return endDate.sub(startDate);
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ MODIFIERS ~~~~~~~~~~~~~~~~~~~~~ */
