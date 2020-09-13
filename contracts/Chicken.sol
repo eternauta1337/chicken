@@ -21,7 +21,7 @@ contract Chicken {
     uint public startDate;
     uint public endDate;
     uint public totalDeposited;
-    uint public poolBalance; // TODO: This might not be needed
+    uint public poolBalance;
 
     /* ~~~~~~~~~~~~~~~~~~~~~ MUTATIVE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
