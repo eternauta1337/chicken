@@ -10,9 +10,9 @@ During the game, players can withdraw with a penalty defined by the percentage o
 
 Since this mechanism forfeits fractions of deposits on each withdrawal, a pool is built by early quitters. Successive quitters claim a pro-rata share of the pool when withdrawing. Thus, late quitters may effectively withdraw more than they initially deposited.
 
-At 100% of the game, withdrawals are locked and all remaining funds are donated to Gitcoin.
+At 100% of the game, withdrawals are locked and all remaining funds are donated to Gitcoin grants.
 
-This mechanism encourages people withdraw as late as possible. Participants will have to make a decision on when to withdraw, which is not trivial. Concerns about gas prices and race conditions might encourage participants to withdraw earlier.
+The game mechanics encourage players to withdraw as late as possible. Concerns about gas prices and race conditions encourage players to withdraw earlier. Failure to withdraw will result in a donation.
 
 ### Install
 ```
