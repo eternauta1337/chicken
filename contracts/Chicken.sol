@@ -96,7 +96,7 @@ contract Chicken is ReentrancyGuard {
         emit Withdrawal(msg.sender, effectiveWithdrawal);
     }
 
-    function endGame() public {
+    function endGame() public nonReentrant {
         require(getTimeElapsedPercent() > UNIT, "Too early to end game");
 
         _resetGame();
