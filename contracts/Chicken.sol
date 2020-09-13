@@ -9,8 +9,8 @@ contract Chicken {
     address public owner;
     address payable public donationAddress;
 
-    event Deposit(address indexed user, uint value);
-    event Withdrawal(address indexed user, uint value);
+    event Deposit(address indexed player, uint value);
+    event Withdrawal(address indexed player, uint value);
 
     uint public constant UNIT = 1e18;
 
@@ -30,8 +30,7 @@ contract Chicken {
     /* ~~~~~~~~~~~~~~~~~~~~~ MUTATIVE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
     constructor(address payable pDonationAddress) public {
-        require(pDonationAddress != address(0), "Invalid donation address");
-        donationAddress = pDonationAddress;
+        _setDonationAddress(pDonationAddress);
 
         owner = msg.sender;
     }
@@ -58,7 +57,13 @@ contract Chicken {
         newGame.endDate = pEndDate;
     }
 
-    function changeDonationAddress(address payable pDonationAddress) external onlyOwner {
+    function setDonationAddress(address payable pDonationAddress) external onlyOwner {
+        _setDonationAddress(pDonationAddress);
+    }
+
+    function _setDonationAddress(address payable pDonationAddress) private {
+        require(pDonationAddress != address(0), "Invalid donation address");
+
         donationAddress = pDonationAddress;
     }
 
@@ -82,17 +87,21 @@ contract Chicken {
         require(now > game.startDate, "Cannot withdraw until game starts");
         require(now < game.endDate, "Cannot withdraw when game is over");
 
-        (uint userBalance, uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal(msg.sender);
-        require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
+        uint playerDeposit = getPlayerDeposit(msg.sender);
 
-        game.poolBalance = game.poolBalance.add(nonWithdrawable).sub(poolReward);
+        (uint withdrawable, uint nonWithdrawable) = getPlayerWithdrawable(msg.sender);
 
-        game.deposits[msg.sender] = game.deposits[msg.sender].sub(userBalance);
-        game.totalDeposited = game.totalDeposited.sub(userBalance);
+        uint poolShare = getPlayerPoolShare(msg.sender);
 
-        msg.sender.transfer(effectiveAmount);
+        game.poolBalance = game.poolBalance.add(nonWithdrawable).sub(poolShare);
 
-        emit Withdrawal(msg.sender, withdrawable);
+        game.deposits[msg.sender] = game.deposits[msg.sender].sub(playerDeposit);
+        game.totalDeposited = game.totalDeposited.sub(playerDeposit);
+
+        uint effectiveWithdrawal = withdrawable.add(poolShare);
+        msg.sender.transfer(effectiveWithdrawal);
+
+        emit Withdrawal(msg.sender, effectiveWithdrawal);
     }
 
     function endGame() public {
@@ -112,26 +121,33 @@ contract Chicken {
         return game.deposits[player];
     }
 
-    function getExpectedWithdrawal(address player) public view returns (uint, uint, uint, uint, uint) {
+    function getPlayerWithdrawable(address player) public view returns (uint, uint) {
         Game storage game = _getLatestGame();
 
-        uint userBalance = game.deposits[player];
+        uint playerDeposit = game.deposits[player];
 
-        uint withdrawable = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
-        uint nonWithdrawable = userBalance.sub(withdrawable);
+        uint withdrawable = playerDeposit.mul(getTimeElapsedPercent()).div(UNIT);
+        uint nonWithdrawable = playerDeposit.sub(withdrawable);
 
-        uint userRatio = userBalance.mul(UNIT).div(game.totalDeposited);
-        uint poolReward = game.poolBalance.mul(userRatio).div(UNIT);
+        return (withdrawable, nonWithdrawable);
+    }
 
-        uint effectiveAmount = withdrawable.add(poolReward);
+    function getPlayerPoolShare(address player) public view returns (uint) {
+        Game storage game = _getLatestGame();
 
-        return (
-            userBalance,
-            withdrawable,
-            nonWithdrawable,
-            poolReward,
-            effectiveAmount
-        );
+        uint playerDeposit = game.deposits[player];
+
+        uint playerDepositRatio = playerDeposit.mul(UNIT).div(game.totalDeposited);
+
+        return game.poolBalance.mul(playerDepositRatio).div(UNIT);
+    }
+
+    function getExpectedWithdrawal(address player) public view returns (uint) {
+        (uint withdrawable,) = getPlayerWithdrawable(player);
+
+        uint poolShare = getPlayerPoolShare(player);
+
+        return withdrawable.add(poolShare);
     }
 
     function getTimeElapsedPercent() public view returns (uint) {

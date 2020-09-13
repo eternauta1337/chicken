@@ -4,6 +4,7 @@
   "description": "An Ethereum economic game designed to harvest greed and coerce it into a common good.",
   "main": "index.js",
   "scripts": {
+    "compile": "buidler compile",
     "simulate": "buidler run ./scripts/Chicken.simulation.js"
   },
   "repository": {
