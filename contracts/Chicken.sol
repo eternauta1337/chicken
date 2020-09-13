@@ -1,112 +1,167 @@
 pragma solidity ^0.5.16;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Detailed.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 
-contract Chicken is ERC20, ERC20Detailed {
-    using SafeERC20 for IERC20;
+contract Chicken {
     using SafeMath for uint256;
 
-    uint public stagingStartDate;
-    uint public gameStartDate;
-    uint public gameEndDate;
+    address public owner;
+    address payable public donationAddress;
 
-    uint public poolBalance;
-
-    event Deposit(address indexed user, uint value);
-    event Withdrawal(address indexed user, uint value);
+    event Deposit(address indexed player, uint value);
+    event Withdrawal(address indexed player, uint value);
 
     uint public constant UNIT = 1e18;
 
+    mapping(uint => mapping(address => uint)) _deposits;
+    uint public gameIdx;
+
+    uint public stagingDate; // TODO: Use uint64 to save storage space?
+    uint public startDate;
+    uint public endDate;
+    uint public totalDeposited;
+    uint public poolBalance;
+
     /* ~~~~~~~~~~~~~~~~~~~~~ MUTATIVE FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
-    constructor(
-        uint pStagingStartDate,
-        uint pGameStartDate,
-        uint pGameEndDate
-    )
-        public
-        ERC20Detailed("CHICK Token", "CHK", 18)
-    {
-        require(pStagingStartDate > now, "Invalid staging start date");
-        require(pGameStartDate > pStagingStartDate, "Invalid game start date");
-        require(pGameEndDate > pStagingStartDate, "Invalid game end date");
+    constructor(address payable pDonationAddress) public {
+        _setDonationAddress(pDonationAddress);
 
-        stagingStartDate = pStagingStartDate;
-        gameStartDate = pGameStartDate;
-        gameEndDate = pGameEndDate;
+        owner = msg.sender;
+    }
+
+    function createGame(
+        uint pStagingDate,
+        uint pStartDate,
+        uint pEndDate
+    ) external onlyOwner {
+        require(pStagingDate > now, "Invalid staging date");
+        require(pStartDate > pStagingDate, "Invalid start date");
+        require(pEndDate > pStartDate, "Invalid end date");
+        require(endDate == 0, "Game is running");
+
+        gameIdx += 1;
+
+        stagingDate = pStagingDate;
+        startDate = pStartDate;
+        endDate = pEndDate;
+    }
+
+    function setDonationAddress(address payable pDonationAddress) external onlyOwner {
+        _setDonationAddress(pDonationAddress);
+    }
+
+    function _setDonationAddress(address payable pDonationAddress) private {
+        require(pDonationAddress != address(0), "Invalid donation address");
+
+        donationAddress = pDonationAddress;
     }
 
     function deposit() public payable {
-        require(now > stagingStartDate, "Too early to deposit");
-        require(now < gameStartDate, "Game already started");
+        require(gameIdx > 0, "No active game");
 
-        _mint(msg.sender, msg.value);
+        require(now > stagingDate, "Too early to deposit");
+        require(now < startDate, "Game already started");
+
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
+        deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+        totalDeposited = totalDeposited.add(msg.value);
 
         emit Deposit(msg.sender, msg.value);
     }
 
     function withdraw() public {
-        require(now > gameStartDate, "Cannot withdraw until game starts");
-        require(now < gameEndDate, "Cannot withdraw when game is over");
+        require(gameIdx > 0, "No active game");
 
-        uint userBalance = balanceOf(msg.sender);
+        require(now > startDate, "Cannot withdraw until game starts");
+        require(now < endDate, "Cannot withdraw when game is over");
 
-        (uint withdrawable, uint nonWithdrawable, uint poolReward, uint effectiveAmount) = getExpectedWithdrawal();
-        msg.sender.transfer(effectiveAmount);
+        uint playerDeposit = getPlayerDeposit(msg.sender);
 
-        require(address(this).balance >= effectiveAmount, "Insufficient ETH for withdraw");
+        (uint withdrawable, uint nonWithdrawable) = getPlayerWithdrawable(msg.sender);
 
-        poolBalance = poolBalance.add(nonWithdrawable).sub(poolReward);
+        uint poolShare = getPlayerPoolShare(msg.sender);
 
-        _burn(msg.sender, userBalance);
+        poolBalance = poolBalance.add(nonWithdrawable).sub(poolShare);
 
-        emit Withdrawal(msg.sender, withdrawable);
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
+        deposits[msg.sender] = deposits[msg.sender].sub(playerDeposit);
+        totalDeposited = totalDeposited.sub(playerDeposit);
+
+        uint effectiveWithdrawal = withdrawable.add(poolShare);
+        msg.sender.transfer(effectiveWithdrawal);
+
+        emit Withdrawal(msg.sender, effectiveWithdrawal);
     }
 
     function endGame() public {
         require(getTimeElapsedPercent() > UNIT, "Too early to end game");
 
-        // TODO
+        _resetGame();
+
+        donationAddress.transfer(address(this).balance);
+    }
+
+    function _resetGame() private {
+        stagingDate = startDate = endDate = 0;
+        poolBalance = 0;
+        totalDeposited = 0;
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~~ VIEW FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~ */
 
-    function getExpectedWithdrawal() public view returns (uint, uint, uint, uint) {
-        uint userBalance = balanceOf(msg.sender);
+    function getPlayerDeposit(address player) public view returns (uint) {
+        mapping(address => uint) storage deposits = _deposits[gameIdx];
 
-        uint withdrawable = userBalance.mul(getTimeElapsedPercent()).div(UNIT);
-        uint nonWithdrawable = userBalance.sub(withdrawable);
+        return deposits[player];
+    }
 
-        uint userRatio = userBalance.mul(UNIT).div(totalSupply());
-        uint poolReward = poolBalance.mul(userRatio).div(UNIT);
+    function getPlayerWithdrawable(address player) public view returns (uint, uint) {
+        uint playerDeposit = getPlayerDeposit(player);
 
-        uint effectiveAmount = withdrawable.add(poolReward);
+        uint withdrawable = playerDeposit.mul(getTimeElapsedPercent()).div(UNIT);
+        uint nonWithdrawable = playerDeposit.sub(withdrawable);
 
-        return (
-            withdrawable,
-            nonWithdrawable,
-            poolReward,
-            effectiveAmount
-        );
+        return (withdrawable, nonWithdrawable);
+    }
+
+    function getPlayerPoolShare(address player) public view returns (uint) {
+        uint playerDeposit = getPlayerDeposit(player);
+
+        uint playerDepositRatio = playerDeposit.mul(UNIT).div(totalDeposited);
+
+        return poolBalance.mul(playerDepositRatio).div(UNIT);
+    }
+
+    function getExpectedWithdrawal(address player) public view returns (uint) {
+        (uint withdrawable,) = getPlayerWithdrawable(player);
+
+        uint poolShare = getPlayerPoolShare(player);
+
+        return withdrawable.add(poolShare);
     }
 
     function getTimeElapsedPercent() public view returns (uint) {
-        uint timeElapsed = now.sub(gameStartDate);
+        uint timeElapsed = now.sub(startDate);
 
         return timeElapsed.mul(UNIT).div(getGameDuration());
     }
 
     function getTimeRemainingPercent() public view returns (uint) {
-        uint timeRemaining = gameEndDate.sub(now);
+        uint timeRemaining = endDate.sub(now);
 
         return timeRemaining.mul(UNIT).div(getGameDuration());
     }
 
     function getGameDuration() public view returns (uint) {
-        return gameEndDate.sub(gameStartDate);
+        return endDate.sub(startDate);
+    }
+
+    /* ~~~~~~~~~~~~~~~~~~~~~ MODIFIERS ~~~~~~~~~~~~~~~~~~~~~ */
+
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only the owner may perform this action");
+        _;
     }
 }
